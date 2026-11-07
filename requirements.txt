@@ -1,0 +1,4 @@
+# No external packages are required.
+# This project uses only Python's standard library
+# (tkinter, re, ast, difflib, json, random, datetime).
+# Linux users may need:  sudo apt install python3-tk

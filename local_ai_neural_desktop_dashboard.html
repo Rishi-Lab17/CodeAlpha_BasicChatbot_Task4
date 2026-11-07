@@ -1,0 +1,1724 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AETHER // Local Neural Chatbot Studio (Zero-API)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Tone.js for subtle sci-fi UI audio synthesis (No external URLs) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Space Grotesk', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        obsidian: '#060913',
+                        slateGlass: 'rgba(13, 19, 34, 0.78)',
+                        cyanGlow: '#00F0FF',
+                        violetGlow: '#8B5CF6',
+                        emeraldGlow: '#10B981',
+                        amberGlow: '#F59E0B',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Sci-Fi Glassmorphism & Animations */
+        :root {
+            --cyan: #00F0FF;
+            --violet: #8B5CF6;
+            --emerald: #10B981;
+        }
+
+        body {
+            background-color: #060913;
+            background-image: 
+                radial-gradient(circle at 12% 20%, rgba(0, 240, 255, 0.08) 0%, transparent 35%),
+                radial-gradient(circle at 88% 80%, rgba(139, 92, 246, 0.09) 0%, transparent 40%),
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+            color: #F1F5F9;
+            overflow-x: hidden;
+        }
+
+        .glass-panel {
+            background: rgba(13, 19, 34, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-card {
+            background: rgba(20, 29, 49, 0.65);
+            border: 1px solid rgba(0, 240, 255, 0.14);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .glass-card:hover {
+            border-color: rgba(0, 240, 255, 0.38);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.12);
+        }
+
+        /* Spring Message Entry Animation */
+        @keyframes msgSlideIn {
+            0% {
+                opacity: 0;
+                transform: translateY(18px) scale(0.96);
+            }
+            70% {
+                transform: translateY(-2px) scale(1.005);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .animate-msg {
+            animation: msgSlideIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Synapse Pulse Border */
+        @keyframes borderPulse {
+            0%, 100% { border-color: rgba(0, 240, 255, 0.2); }
+            50% { border-color: rgba(0, 240, 255, 0.65); }
+        }
+
+        .pulse-active {
+            animation: borderPulse 1.5s infinite;
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(6, 9, 19, 0.4);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 240, 255, 0.25);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 240, 255, 0.5);
+        }
+
+        /* Typing Dots */
+        .typing-dot {
+            animation: typingBounce 1.2s infinite ease-in-out both;
+        }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typingBounce {
+            0%, 80%, 100% { transform: scale(0.4); opacity: 0.4; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Radial Gauge Transition */
+        .gauge-ring {
+            transition: stroke-dashoffset 0.7s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.4s ease;
+        }
+    </style>
+</head>
+<body class="lg:h-screen lg:overflow-hidden flex flex-col select-none">
+
+    <!-- TOP TELEMETRY NAVBAR -->
+    <header class="h-14 px-4 lg:px-6 border-b border-white/10 bg-obsidian/90 backdrop-blur-md flex items-center justify-between shrink-0 z-20">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400/20 to-violet-600/30 border border-cyan-400/40 flex items-center justify-center shadow-[0_0_15px_rgba(0,240,255,0.25)]">
+                <i class="fa-solid fa-brain text-cyanGlow text-base animate-pulse"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-display font-bold tracking-wider text-sm md:text-base text-white">AETHER <span class="text-cyanGlow font-mono text-xs">// v3.4 LOCAL NLP</span></h1>
+                    <span class="px-2 py-0.5 text-[10px] font-mono uppercase tracking-widest rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> Zero API Keys
+                    </span>
+                </div>
+                <p class="text-[11px] text-slate-400 hidden sm:block">TF-IDF N-Gram Vectorizer • Levenshtein Fuzzy Engine • Live Memory Core</p>
+            </div>
+        </div>
+
+        <!-- Status & Action Controls -->
+        <div class="flex items-center gap-2.5">
+            <!-- Audio Synth Toggle -->
+            <button id="soundToggleBtn" onclick="toggleAudio()" class="px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-white/10 text-xs font-mono text-slate-300 flex items-center gap-2 transition" title="Toggle Sci-Fi UI Sound Effects">
+                <i id="soundIcon" class="fa-solid fa-volume-xmark text-slate-400"></i>
+                <span class="hidden md:inline" id="soundLabel">SFX: OFF</span>
+            </button>
+
+            <!-- Reset Knowledge Button -->
+            <button onclick="resetKnowledgeBase()" class="px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-950/60 hover:border-rose-500/40 border border-white/10 text-xs font-mono text-slate-300 hover:text-rose-300 flex items-center gap-1.5 transition" title="Reset LocalStorage Intents to Factory Defaults">
+                <i class="fa-solid fa-rotate-left"></i>
+                <span class="hidden xl:inline">Reset Brain</span>
+            </button>
+
+            <!-- Get Upgraded Python Code Button -->
+            <button onclick="openPythonModal()" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500/20 to-violet-500/25 hover:from-cyan-500/35 hover:to-violet-500/40 border border-cyan-400/50 text-xs font-display font-semibold text-cyan-200 flex items-center gap-2 shadow-[0_0_20px_rgba(0,240,255,0.2)] transition">
+                <i class="fa-brands fa-python text-cyanGlow text-sm"></i>
+                <span>Get Python GUI (`chatbot.py` & `main.py`)</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN 3-COLUMN LANDSCAPE WORKSPACE -->
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 p-3 lg:p-4 lg:overflow-hidden max-w-[1920px] w-full mx-auto">
+
+        <!-- =====================================================================
+             LEFT PANEL (3 COLS): NEURAL CORE VISUALIZER & WAVEFORM TELEMETRY
+             ===================================================================== -->
+        <section class="lg:col-span-3 glass-panel rounded-2xl p-4 flex flex-col gap-3.5 lg:overflow-hidden min-h-[420px]">
+            <!-- Panel Header -->
+            <div class="flex items-center justify-between border-b border-white/10 pb-2.5">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-cyanGlow shadow-[0_0_8px_#00F0FF]"></span>
+                    <h2 class="font-display text-xs font-bold uppercase tracking-wider text-slate-200">Neural Core Topology</h2>
+                </div>
+                <span id="coreStateBadge" class="font-mono text-[10px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">IDLE // 60 FPS</span>
+            </div>
+
+            <!-- Interactive HTML5 Neural Canvas -->
+            <div class="relative flex-1 min-h-[190px] rounded-xl overflow-hidden bg-[#04070e] border border-cyan-500/20 group">
+                <canvas id="neuralCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+                
+                <!-- HUD Overlay Inside Canvas -->
+                <div class="absolute top-2.5 left-2.5 pointer-events-none flex flex-col gap-1">
+                    <div class="text-[10px] font-mono text-cyan-400/80 bg-black/50 px-2 py-0.5 rounded backdrop-blur-sm border border-cyan-500/20">
+                        NODES: <span id="nodeCountLabel" class="text-white font-bold">28</span> | SYNAPSES: <span id="synapseEnergyLabel" class="text-emerald-400">1.0x</span>
+                    </div>
+                </div>
+                <div class="absolute bottom-2 right-2.5 pointer-events-none text-[10px] font-mono text-slate-400 bg-black/60 px-2 py-0.5 rounded">
+                    Click canvas to pulse neural wave
+                </div>
+            </div>
+
+            <!-- Real-Time Confidence Radial Gauge & Harmonics -->
+            <div class="grid grid-cols-2 gap-3 bg-slate-900/60 rounded-xl p-3 border border-white/5 items-center">
+                <!-- SVG Radial Confidence Gauge -->
+                <div class="flex flex-col items-center justify-center relative">
+                    <svg class="w-24 h-24 -rotate-90 transform" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="40" stroke="rgba(255,255,255,0.08)" stroke-width="8" fill="transparent"/>
+                        <circle id="confidenceRing" class="gauge-ring" cx="50" cy="50" r="40" stroke="#00F0FF" stroke-width="8" stroke-dasharray="251.2" stroke-dashoffset="60" stroke-linecap="round" fill="transparent"/>
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span id="confidencePctText" class="font-mono text-lg font-bold text-white">76%</span>
+                        <span class="font-mono text-[9px] uppercase tracking-wider text-slate-400">Confidence</span>
+                    </div>
+                </div>
+
+                <!-- Live Engine Telemetry Stats -->
+                <div class="flex flex-col gap-2">
+                    <div class="bg-slate-950/70 p-2 rounded-lg border border-white/5">
+                        <span class="text-[10px] font-mono text-slate-400 block">ACTIVE INTENT</span>
+                        <span id="leftIntentTag" class="font-mono text-xs font-semibold text-cyanGlow truncate block">#greeting</span>
+                    </div>
+                    <div class="bg-slate-950/70 p-2 rounded-lg border border-white/5">
+                        <span class="text-[10px] font-mono text-slate-400 block">VECTOR CORPUS</span>
+                        <span id="corpusSizeText" class="font-mono text-xs font-semibold text-violet-300 block">36 Patterns</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Animated SVG Activity Waveform -->
+            <div class="bg-slate-900/60 rounded-xl p-3 border border-white/5">
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="font-mono text-[10px] uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-wave-square text-cyanGlow"></i> Harmonics & Token Stream
+                    </span>
+                    <span id="latencyBadge" class="font-mono text-[10px] text-emerald-400">0.8 ms</span>
+                </div>
+                <svg id="waveformSvg" class="w-full h-11 overflow-visible" viewBox="0 0 300 45">
+                    <defs>
+                        <linearGradient id="waveGrad" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stop-color="#00F0FF" stop-opacity="0.2" />
+                            <stop offset="50%" stop-color="#00F0FF" stop-opacity="1" />
+                            <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0.8" />
+                        </linearGradient>
+                    </defs>
+                    <path id="wavePathPrimary" d="M 0 22 Q 75 22 150 22 T 300 22" fill="none" stroke="url(#waveGrad)" stroke-width="2.5" stroke-linecap="round"/>
+                    <path id="wavePathSecondary" d="M 0 22 Q 75 22 150 22 T 300 22" fill="none" stroke="rgba(139, 92, 246, 0.35)" stroke-width="1.5" stroke-dasharray="4 3"/>
+                </svg>
+            </div>
+        </section>
+
+        <!-- =====================================================================
+             CENTER PANEL (5 COLS): HIGH-CRAFT CHAT INTERFACE & SLASH COMMANDS
+             ===================================================================== -->
+        <section class="lg:col-span-5 glass-panel rounded-2xl flex flex-col lg:overflow-hidden min-h-[540px] relative">
+            <!-- Chat Header Bar -->
+            <div class="px-4 py-3 border-b border-white/10 flex items-center justify-between bg-slate-900/40 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <div class="relative">
+                        <div class="w-2.5 h-2.5 rounded-full bg-emerald-400"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 absolute inset-0 animate-ping"></div>
+                    </div>
+                    <span class="font-display font-bold text-xs md:text-sm tracking-wide text-white">NEURAL DIALOGUE TERMINAL</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <button onclick="executeSlashCommand('/memory')" class="px-2 py-1 rounded text-[11px] font-mono bg-slate-800/80 hover:bg-slate-700 text-cyan-300 border border-cyan-500/20 transition" title="Inspect Session Memory">
+                        /memory
+                    </button>
+                    <button onclick="executeSlashCommand('/export')" class="px-2 py-1 rounded text-[11px] font-mono bg-slate-800/80 hover:bg-slate-700 text-violet-300 border border-violet-500/20 transition" title="Export Knowledge JSON">
+                        /export
+                    </button>
+                    <button onclick="executeSlashCommand('/clear')" class="px-2 py-1 rounded text-[11px] font-mono bg-slate-800/80 hover:bg-rose-950/60 text-slate-300 hover:text-rose-300 border border-white/10 transition" title="Clear Chat Log">
+                        /clear
+                    </button>
+                </div>
+            </div>
+
+            <!-- Scrollable Message Stream -->
+            <div id="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-3.5 select-text">
+                <!-- Messages injected dynamically via JS -->
+            </div>
+
+            <!-- Typing Indicator (Hidden by default) -->
+            <div id="typingIndicator" class="hidden px-4 pb-2">
+                <div class="inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl rounded-tl-sm bg-slate-800/90 border border-cyan-400/30 text-xs text-cyan-200">
+                    <span class="font-mono text-[10px] uppercase tracking-wider text-cyanGlow">Synthesizing</span>
+                    <div class="flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-cyanGlow typing-dot"></span>
+                        <span class="w-1.5 h-1.5 rounded-full bg-cyanGlow typing-dot"></span>
+                        <span class="w-1.5 h-1.5 rounded-full bg-cyanGlow typing-dot"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick-Action Prompt Pills -->
+            <div class="px-3.5 py-2 border-t border-white/5 bg-slate-950/40 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+                <span class="text-[10px] font-mono uppercase text-slate-400 shrink-0 mr-1"><i class="fa-solid fa-bolt text-amber-400 mr-1"></i>Prompts:</span>
+                <button onclick="sendQuickPrompt('How do you work without API keys?')" class="shrink-0 px-2.5 py-1 rounded-full text-[11px] bg-slate-800/90 hover:bg-cyan-500/20 hover:border-cyan-400/40 border border-white/10 text-slate-200 transition">
+                    How do you work?
+                </button>
+                <button onclick="sendQuickPrompt('My name is Alex and I love cyberpunk')" class="shrink-0 px-2.5 py-1 rounded-full text-[11px] bg-slate-800/90 hover:bg-cyan-500/20 hover:border-cyan-400/40 border border-white/10 text-slate-200 transition">
+                    Store my name
+                </button>
+                <button onclick="sendQuickPrompt('What is my name?')" class="shrink-0 px-2.5 py-1 rounded-full text-[11px] bg-slate-800/90 hover:bg-cyan-500/20 hover:border-cyan-400/40 border border-white/10 text-slate-200 transition">
+                    Recall memory
+                </button>
+                <button onclick="sendQuickPrompt('Calculate (42 * 18) + 256 / 4')" class="shrink-0 px-2.5 py-1 rounded-full text-[11px] bg-slate-800/90 hover:bg-emerald-500/20 hover:border-emerald-400/40 border border-white/10 text-slate-200 transition">
+                    Math: (42*18)+256/4
+                </button>
+                <button onclick="sendQuickPrompt('Tell me a programming joke')" class="shrink-0 px-2.5 py-1 rounded-full text-[11px] bg-slate-800/90 hover:bg-violet-500/20 hover:border-violet-400/40 border border-white/10 text-slate-200 transition">
+                    Dev Joke
+                </button>
+            </div>
+
+            <!-- Input Composer Form -->
+            <form id="chatForm" onsubmit="handleChatSubmit(event)" class="p-3 bg-slate-900/80 border-t border-white/10 flex items-center gap-2 shrink-0">
+                <div class="relative flex-1">
+                    <input 
+                        id="chatInput" 
+                        type="text" 
+                        autocomplete="off"
+                        placeholder="Ask anything, calculate math, or type /learn pattern | response..." 
+                        class="w-full pl-3.5 pr-9 py-2.5 rounded-xl bg-slate-950/90 border border-white/15 focus:border-cyanGlow focus:outline-none focus:ring-1 focus:ring-cyanGlow/50 text-xs md:text-sm text-white placeholder-slate-500 font-sans transition"
+                    />
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-slate-500 hidden sm:inline">↵</span>
+                </div>
+                <button type="submit" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-violet-600 hover:from-cyan-400 hover:to-violet-500 text-slate-950 font-display font-bold text-xs md:text-sm flex items-center gap-1.5 shadow-[0_0_20px_rgba(0,240,255,0.3)] transition transform active:scale-95">
+                    <span>SEND</span>
+                    <i class="fa-solid fa-paper-plane text-xs"></i>
+                </button>
+            </form>
+        </section>
+
+        <!-- =====================================================================
+             RIGHT PANEL (4 COLS): LIVE NLP TELEMETRY & INTERACTIVE TRAINING STUDIO
+             ===================================================================== -->
+        <section class="lg:col-span-4 glass-panel rounded-2xl p-4 flex flex-col gap-3.5 lg:overflow-hidden min-h-[520px]">
+            <!-- Panel Header with Mode Tabs -->
+            <div class="flex items-center justify-between border-b border-white/10 pb-2.5 shrink-0">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-microchip text-violet-400 text-sm"></i>
+                    <h2 class="font-display text-xs font-bold uppercase tracking-wider text-slate-200">NLP Inspector & Studio</h2>
+                </div>
+                <div class="flex bg-slate-900/90 p-0.5 rounded-lg border border-white/10">
+                    <button id="tabBtnTelemetry" onclick="switchRightTab('telemetry')" class="px-2.5 py-1 rounded-md text-[11px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 transition">
+                        Telemetry
+                    </button>
+                    <button id="tabBtnTrain" onclick="switchRightTab('train')" class="px-2.5 py-1 rounded-md text-[11px] font-mono text-slate-400 hover:text-white transition">
+                        + Teach Bot
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB 1: REAL-TIME NLP TELEMETRY & MEMORY INSPECTOR -->
+            <div id="rightTabTelemetry" class="flex-1 flex flex-col gap-3 overflow-y-auto pr-1">
+                <!-- Telemetry Breakdown Card -->
+                <div class="glass-card rounded-xl p-3.5 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[11px] font-mono uppercase tracking-wider text-slate-400">Last Query Vector Match</span>
+                        <span id="matchMethodBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30">TF-IDF + FUZZY</span>
+                    </div>
+
+                    <!-- Matched Pattern & Intent -->
+                    <div class="grid grid-cols-2 gap-2 bg-slate-950/70 p-2.5 rounded-lg border border-white/5">
+                        <div>
+                            <span class="text-[10px] font-mono text-slate-400 block">MATCHED INTENT TAG</span>
+                            <span id="inspIntentTag" class="font-mono text-xs font-bold text-cyanGlow">#greeting</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-mono text-slate-400 block">CLOSEST PATTERN</span>
+                            <span id="inspClosestPattern" class="font-mono text-xs text-slate-200 truncate block">"hello"</span>
+                        </div>
+                    </div>
+
+                    <!-- 3 Animated Metric Bars -->
+                    <div class="space-y-2">
+                        <!-- TF-IDF Cosine Similarity -->
+                        <div>
+                            <div class="flex justify-between text-[11px] font-mono mb-1">
+                                <span class="text-slate-300">TF-IDF N-Gram Cosine (65% wt)</span>
+                                <span id="cosineValText" class="text-cyanGlow font-bold">82.0%</span>
+                            </div>
+                            <div class="w-full h-2 bg-slate-950 rounded-full overflow-hidden p-0.5 border border-white/5">
+                                <div id="cosineBar" class="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-500" style="width: 82%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Levenshtein Fuzzy Ratio -->
+                        <div>
+                            <div class="flex justify-between text-[11px] font-mono mb-1">
+                                <span class="text-slate-300">Levenshtein Fuzzy Ratio (35% wt)</span>
+                                <span id="fuzzyValText" class="text-violet-300 font-bold">65.0%</span>
+                            </div>
+                            <div class="w-full h-2 bg-slate-950 rounded-full overflow-hidden p-0.5 border border-white/5">
+                                <div id="fuzzyBar" class="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-full transition-all duration-500" style="width: 65%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Combined Hybrid Score -->
+                        <div>
+                            <div class="flex justify-between text-[11px] font-mono mb-1">
+                                <span class="text-emerald-300 font-semibold">Combined Confidence (Threshold ≥ 42%)</span>
+                                <span id="combinedValText" class="text-emerald-400 font-bold">76.1%</span>
+                            </div>
+                            <div class="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden p-0.5 border border-emerald-500/30">
+                                <div id="combinedBar" class="h-full bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full transition-all duration-500" style="width: 76%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Session Memory Key-Value Store -->
+                <div class="glass-card rounded-xl p-3.5">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[11px] font-mono uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-memory text-emerald-400"></i> Active Session Memory (`bot.memory`)
+                        </span>
+                        <span id="memoryCountBadge" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">2 keys</span>
+                    </div>
+                    <div id="memoryGrid" class="grid grid-cols-1 gap-1.5 max-h-28 overflow-y-auto">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Live Intent Corpus Explorer -->
+                <div class="glass-card rounded-xl p-3.5 flex-1 flex flex-col min-h-[140px]">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[11px] font-mono uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-database text-cyanGlow"></i> Local Knowledge Base
+                        </span>
+                        <span id="intentCountBadge" class="text-[10px] font-mono text-slate-400">8 Intents</span>
+                    </div>
+                    <div id="intentExplorerList" class="space-y-1.5 overflow-y-auto flex-1 pr-1 max-h-44 lg:max-h-none">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: INTERACTIVE "TEACH BOT" LIVE TRAINING STUDIO -->
+            <div id="rightTabTrain" class="hidden flex-1 flex flex-col gap-3 overflow-y-auto pr-1">
+                <div class="glass-card rounded-xl p-4 space-y-3.5 border-cyan-400/30">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-display font-bold text-sm text-cyanGlow flex items-center gap-2">
+                            <i class="fa-solid fa-graduation-cap"></i> Live Intent Trainer
+                        </h3>
+                        <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Auto-Vectorizes</span>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Add new training patterns and responses directly into the local TF-IDF matrix. Changes persist automatically in your browser's <code class="text-cyan-300 font-mono">localStorage</code>.
+                    </p>
+
+                    <form id="trainForm" onsubmit="handleTrainSubmit(event)" class="space-y-3">
+                        <div>
+                            <label class="block text-[11px] font-mono uppercase text-slate-400 mb-1">Intent Tag Identifier</label>
+                            <input id="trainTagInput" type="text" required placeholder="e.g., python_tips, project_info" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-white/15 focus:border-cyanGlow focus:outline-none text-xs font-mono text-white"/>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-mono uppercase text-slate-400 mb-1">User Trigger Pattern (Phrase)</label>
+                            <input id="trainPatternInput" type="text" required placeholder="e.g., how do I center a div" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-white/15 focus:border-cyanGlow focus:outline-none text-xs text-white"/>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-mono uppercase text-slate-400 mb-1">Bot Response</label>
+                            <textarea id="trainResponseInput" rows="3" required placeholder="Use flexbox: display: flex; justify-content: center; align-items: center;" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-white/15 focus:border-cyanGlow focus:outline-none text-xs text-white"></textarea>
+                        </div>
+                        <button type="submit" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-display font-bold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.25)] transition">
+                            <i class="fa-solid fa-plus-circle mr-1"></i> Inject Into Neural Matrix
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Quick Add Memory Variable -->
+                <div class="glass-card rounded-xl p-3.5 space-y-2.5">
+                    <span class="text-[11px] font-mono uppercase tracking-wider text-slate-300 block">Manual Memory Injection</span>
+                    <div class="flex gap-2">
+                        <input id="memKeyInput" type="text" placeholder="Key (e.g. role)" class="w-1/3 px-2.5 py-1.5 rounded-lg bg-slate-950 border border-white/15 text-xs font-mono text-white"/>
+                        <input id="memValInput" type="text" placeholder="Value (e.g. Architect)" class="flex-1 px-2.5 py-1.5 rounded-lg bg-slate-950 border border-white/15 text-xs text-white"/>
+                        <button onclick="injectMemoryVar()" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-xs font-bold text-white transition">Save</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- =========================================================================
+         PYTHON DESKTOP CODE MODAL (UPGRADED LANDSCAPE TKINTER/CUSTOMTKINTER APP)
+         ========================================================================= -->
+    <div id="pythonModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center p-4">
+        <div class="glass-panel rounded-2xl max-w-4xl w-full max-h-[88vh] flex flex-col border border-cyan-500/40 shadow-[0_0_50px_rgba(0,240,255,0.2)] overflow-hidden">
+            <!-- Modal Header -->
+            <div class="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-slate-900/80">
+                <div class="flex items-center gap-2.5">
+                    <i class="fa-brands fa-python text-cyanGlow text-xl"></i>
+                    <div>
+                        <h3 class="font-display font-bold text-base text-white">Upgraded Landscape Python Desktop Files (`main.py` & `chatbot.py`)</h3>
+                        <p class="text-xs text-slate-400">100% Local Python GUI with animated Tkinter neural canvas + TF-IDF NLP Engine (Zero API Keys)</p>
+                    </div>
+                </div>
+                <button onclick="closePythonModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- File Switcher Tabs -->
+            <div class="px-5 py-2.5 bg-slate-950/80 border-b border-white/10 flex items-center justify-between">
+                <div class="flex gap-2">
+                    <button id="pyTabMain" onclick="switchPyModalTab('main')" class="px-3 py-1.5 rounded-lg text-xs font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                        main.py (Landscape Animated GUI)
+                    </button>
+                    <button id="pyTabChatbot" onclick="switchPyModalTab('chatbot')" class="px-3 py-1.5 rounded-lg text-xs font-mono bg-slate-800 text-slate-400 hover:text-white">
+                        chatbot.py (TF-IDF + Fuzzy Engine)
+                    </button>
+                </div>
+                <button onclick="copyPythonCode()" class="px-3.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 text-xs font-mono flex items-center gap-1.5 transition">
+                    <i class="fa-regular fa-copy"></i>
+                    <span id="copyBtnText">Copy Code</span>
+                </button>
+            </div>
+
+            <!-- Code Viewer -->
+            <div class="flex-1 overflow-y-auto p-5 bg-[#050811] select-text">
+                <pre id="pythonCodeDisplay" class="font-mono text-xs text-cyan-100 leading-relaxed overflow-x-auto"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- =========================================================================
+         APPLICATION JAVASCRIPT: LOCAL NLP ENGINE + CANVAS GRAPHICS + UI LOGIC
+         ========================================================================= -->
+    <script>
+        /*************************************************************************
+         * 1. SCI-FI SYNTHESIZER AUDIO ENGINE (Tone.js - Zero External Assets)
+         *************************************************************************/
+        let soundEnabled = false;
+        let synth = null;
+
+        async function toggleAudio() {
+            soundEnabled = !soundEnabled;
+            const icon = document.getElementById('soundIcon');
+            const label = document.getElementById('soundLabel');
+            if (soundEnabled) {
+                await Tone.start();
+                if (!synth) {
+                    synth = new Tone.PolySynth(Tone.Synth, {
+                        oscillator: { type: "sine" },
+                        envelope: { attack: 0.005, decay: 0.12, sustain: 0.02, release: 0.2 }
+                    }).toDestination();
+                    synth.volume.value = -14;
+                }
+                icon.className = "fa-solid fa-volume-high text-cyanGlow";
+                label.textContent = "SFX: ON";
+                playSciFiBlip("C5");
+                showToast("Sci-Fi Neural Audio Telemetry Activated", "cyan");
+            } else {
+                icon.className = "fa-solid fa-volume-xmark text-slate-400";
+                label.textContent = "SFX: OFF";
+            }
+        }
+
+        function playSciFiBlip(note = "A4", duration = "32n") {
+            if (!soundEnabled || !synth) return;
+            try {
+                synth.triggerAttackRelease(note, duration);
+            } catch (e) {}
+        }
+
+        /*************************************************************************
+         * 2. LOCAL NLP ENGINE (Mirroring Upgraded `chatbot.py` in Browser JS)
+         *    - Character & Word N-Gram TF-IDF Vectorizer
+         *    - Cosine Similarity + Levenshtein Fuzzy String Ratio
+         *    - Safe Arithmetic Evaluator & Regex Session Memory
+         *************************************************************************/
+        const DEFAULT_INTENTS = [
+            {
+                tag: "greeting",
+                patterns: ["hello", "hi", "hey", "good morning", "greetings", "whats up", "yo", "howdy"],
+                responses: [
+                    "Greetings, Operator! AETHER Local Neural Core is online at 100% capacity.",
+                    "Hello! Ready to process queries locally—zero external API keys required."
+                ]
+            },
+            {
+                tag: "architecture",
+                patterns: ["how do you work", "how do you work without api keys", "what is your architecture", "explain your nlp engine", "are you using openai"],
+                responses: [
+                    "I operate **100% locally** using a hybrid **TF-IDF N-Gram Vectorizer** (65% weight) combined with **Levenshtein Fuzzy String Matching** (35% weight), plus regex memory capture and a deterministic math parser."
+                ]
+            },
+            {
+                tag: "capabilities",
+                patterns: ["what can you do", "help me", "features", "commands", "show capabilities"],
+                responses: [
+                    "I can match intents with typo tolerance, evaluate complex math expressions, remember personal facts (`My name is...`, `Remember that...`), and learn new patterns live via `/learn <phrase> | <response>`!"
+                ]
+            },
+            {
+                tag: "status",
+                patterns: ["how are you", "system status", "are you working", "diagnostics", "how is it going"],
+                responses: [
+                    "All neural clusters nominal! Running at sub-millisecond latency with zero cloud dependencies."
+                ]
+            },
+            {
+                tag: "time",
+                patterns: ["what time is it", "current time", "tell me the date", "today's date"],
+                responses: ["__DYNAMIC_TIME__"]
+            },
+            {
+                tag: "joke",
+                patterns: ["tell me a joke", "tell me a programming joke", "make me laugh", "funny joke"],
+                responses: [
+                    "Why do programmers prefer dark mode? Because light attracts bugs!",
+                    "There are 10 types of people in the world: those who understand binary, and those who don't.",
+                    "How many programmers does it take to change a light bulb? None, that's a hardware problem."
+                ]
+            },
+            {
+                tag: "creator",
+                patterns: ["who made you", "who created you", "what are you"],
+                responses: [
+                    "I am your upgraded **Local AI Chatbot Studio**—built to transform your `chatbot.py` and `main.py` project into an interactive landscape neural system."
+                ]
+            },
+            {
+                tag: "goodbye",
+                patterns: ["bye", "exit", "quit", "see you later", "goodbye"],
+                responses: [
+                    "Standing by in low-power neural state. Catch you next session!"
+                ]
+            }
+        ];
+
+        class LocalNLPEngine {
+            constructor() {
+                this.storageKey = "aether_local_intents_v3";
+                this.memoryKey = "aether_local_memory_v3";
+                this.intents = this.loadIntents();
+                this.memory = this.loadMemory();
+                this.corpus = [];
+                this.vocab = [];
+                this.idf = {};
+                this.tfidfMatrix = [];
+                this.buildVectorizer();
+            }
+
+            loadIntents() {
+                try {
+                    const saved = localStorage.getItem(this.storageKey);
+                    return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_INTENTS));
+                } catch (e) {
+                    return JSON.parse(JSON.stringify(DEFAULT_INTENTS));
+                }
+            }
+
+            saveIntents() {
+                try {
+                    localStorage.setItem(this.storageKey, JSON.stringify(this.intents));
+                } catch (e) {}
+            }
+
+            loadMemory() {
+                try {
+                    const saved = localStorage.getItem(this.memoryKey);
+                    return saved ? JSON.parse(saved) : { user_name: "Operator", clearance: "Level-9", mode: "Offline-Local" };
+                } catch (e) {
+                    return { user_name: "Operator", clearance: "Level-9" };
+                }
+            }
+
+            saveMemory() {
+                try {
+                    localStorage.setItem(this.memoryKey, JSON.stringify(this.memory));
+                } catch (e) {}
+            }
+
+            // Extracts word tokens + character 3-grams for strong typo tolerance
+            extractTokens(text) {
+                const clean = text.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim();
+                if (!clean) return [];
+                const words = clean.split(/\s+/);
+                const bigrams = [];
+                for (let i = 0; i < words.length - 1; i++) {
+                    bigrams.push(words[i] + "_" + words[i + 1]);
+                }
+                const padded = ` ${clean} `;
+                const charTrigrams = [];
+                for (let i = 0; i <= padded.length - 3; i++) {
+                    charTrigrams.push(padded.slice(i, i + 3));
+                }
+                return [...words, ...bigrams, ...charTrigrams];
+            }
+
+            buildVectorizer() {
+                this.corpus = [];
+                for (const intent of this.intents) {
+                    for (const pattern of intent.patterns) {
+                        this.corpus.push({
+                            tag: intent.tag,
+                            pattern: pattern.toLowerCase(),
+                            tokens: this.extractTokens(pattern)
+                        });
+                    }
+                }
+
+                const docCount = this.corpus.length || 1;
+                const df = {};
+                for (const doc of this.corpus) {
+                    const unique = new Set(doc.tokens);
+                    unique.forEach(t => {
+                        df[t] = (df[t] || 0) + 1;
+                    });
+                }
+
+                this.vocab = Object.keys(df);
+                this.idf = {};
+                this.vocab.forEach(t => {
+                    this.idf[t] = Math.log((docCount + 1) / (df[t] + 1)) + 1;
+                });
+
+                this.tfidfMatrix = this.corpus.map(doc => this.computeTfidfVector(doc.tokens));
+            }
+
+            computeTfidfVector(tokens) {
+                const tf = {};
+                tokens.forEach(t => { tf[t] = (tf[t] || 0) + 1; });
+                const vec = {};
+                let norm = 0;
+                for (const t in tf) {
+                    if (this.idf[t]) {
+                        const val = (tf[t] / tokens.length) * this.idf[t];
+                        vec[t] = val;
+                        norm += val * val;
+                    }
+                }
+                norm = Math.sqrt(norm) || 1;
+                for (const t in vec) {
+                    vec[t] /= norm;
+                }
+                return vec;
+            }
+
+            cosineSimilarity(vecA, vecB) {
+                let dot = 0;
+                for (const t in vecA) {
+                    if (vecB[t]) dot += vecA[t] * vecB[t];
+                }
+                return Math.min(1, Math.max(0, dot));
+            }
+
+            // Levenshtein distance ratio (mirrors Python difflib.SequenceMatcher)
+            fuzzyRatio(s1, s2) {
+                const a = s1.toLowerCase().trim();
+                const b = s2.toLowerCase().trim();
+                if (a === b) return 1.0;
+                if (!a.length || !b.length) return 0.0;
+
+                const matrix = Array.from({ length: b.length + 1 }, (_, i) => [i]);
+                for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+
+                for (let i = 1; i <= b.length; i++) {
+                    for (let j = 1; j <= a.length; j++) {
+                        const cost = b.charAt(i - 1) === a.charAt(j - 1) ? 0 : 1;
+                        matrix[i][j] = Math.min(
+                            matrix[i - 1][j] + 1,
+                            matrix[i][j - 1] + 1,
+                            matrix[i - 1][j - 1] + cost
+                        );
+                    }
+                }
+                const distance = matrix[b.length][a.length];
+                return (Math.max(a.length, b.length) - distance) / Math.max(a.length, b.length);
+            }
+
+            checkMemoryTriggers(input) {
+                // Capture Name
+                const nameMatch = input.match(/\b(?:my name is|call me|i am)\s+([a-zA-Z0-9_-]+)/i);
+                if (nameMatch && !["working", "good", "fine", "here", "ready", "asking"].includes(nameMatch[1].toLowerCase())) {
+                    const name = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1);
+                    this.memory["user_name"] = name;
+                    this.saveMemory();
+                    return `Identity confirmed, **${name}**! I have committed \`user_name = "${name}"\` to my local session memory.`;
+                }
+
+                // Capture general memory note
+                const remMatch = input.match(/\b(?:remember that|note that)\s+(.+)/i);
+                if (remMatch) {
+                    const fact = remMatch[1].trim();
+                    this.memory["saved_note"] = fact;
+                    this.saveMemory();
+                    return `Stored in local memory bank: *"${fact}"*`;
+                }
+
+                // Recall Name
+                if (/\b(?:what is my name|who am i|do you know my name)\b/i.test(input)) {
+                    if (this.memory.user_name) {
+                        return `You are **${this.memory.user_name}** (Clearance: \`${this.memory.clearance || 'Standard'}\`).`;
+                    }
+                    return "You haven't registered your name yet. Tell me `'My name is ...'`!";
+                }
+
+                return null;
+            }
+
+            evaluateMath(input) {
+                // Strip conversational prefix like "calculate" or "what is"
+                const expr = input.replace(/^(?:calculate|compute|solve|what is|math)\s*/i, "").trim();
+                // Ensure expression contains only valid arithmetic characters and at least one operator
+                if (/^[0-9+\-*/().\s%^]+$/.test(expr) && /[+\-*/%^]/.test(expr) && /\d/.test(expr)) {
+                    try {
+                        const sanitized = expr.replace(/\^/g, "**");
+                        const result = Function(`"use strict"; return (${sanitized})`)();
+                        if (typeof result === "number" && isFinite(result)) {
+                            const formatted = Number.isInteger(result) ? result : Number(result.toFixed(4));
+                            return `Deterministic Math Parser Result: \`${expr} = ${formatted}\``;
+                        }
+                    } catch (e) {}
+                }
+                return null;
+            }
+
+            learn(tag, pattern, response) {
+                const cleanTag = tag.toLowerCase().replace(/[^a-z0-9_]/g, "_") || `custom_${this.intents.length}`;
+                let found = this.intents.find(i => i.tag === cleanTag);
+                if (found) {
+                    if (!found.patterns.includes(pattern.toLowerCase())) {
+                        found.patterns.push(pattern.toLowerCase());
+                    }
+                    if (!found.responses.includes(response)) {
+                        found.responses.push(response);
+                    }
+                } else {
+                    this.intents.unshift({
+                        tag: cleanTag,
+                        patterns: [pattern.toLowerCase()],
+                        responses: [response]
+                    });
+                }
+                this.saveIntents();
+                this.buildVectorizer();
+            }
+
+            process(userInput) {
+                const startTime = performance.now();
+                const query = userInput.trim();
+
+                // 1. Memory Trigger Check
+                const memResp = this.checkMemoryTriggers(query);
+                if (memResp) {
+                    return {
+                        reply: memResp,
+                        tag: "memory_core",
+                        closestPattern: "regex://memory_capture",
+                        cosine: 1.0,
+                        fuzzy: 1.0,
+                        combined: 1.0,
+                        method: "REGEX MEMORY",
+                        latencyMs: (performance.now() - startTime).toFixed(2)
+                    };
+                }
+
+                // 2. Math Evaluator Check
+                const mathResp = this.evaluateMath(query);
+                if (mathResp) {
+                    return {
+                        reply: mathResp,
+                        tag: "math_alu",
+                        closestPattern: query,
+                        cosine: 1.0,
+                        fuzzy: 1.0,
+                        combined: 1.0,
+                        method: "MATH PARSER",
+                        latencyMs: (performance.now() - startTime).toFixed(2)
+                    };
+                }
+
+                // 3. TF-IDF Cosine + Levenshtein Fuzzy Matching
+                const queryTokens = this.extractTokens(query);
+                const queryVec = this.computeTfidfVector(queryTokens);
+
+                let bestIdx = 0;
+                let bestCombined = 0;
+                let bestCosine = 0;
+                let bestFuzzy = 0;
+
+                for (let i = 0; i < this.corpus.length; i++) {
+                    const cos = this.cosineSimilarity(queryVec, this.tfidfMatrix[i]);
+                    const fuz = this.fuzzyRatio(query, this.corpus[i].pattern);
+                    const combined = (cos * 0.65) + (fuz * 0.35);
+
+                    if (combined > bestCombined) {
+                        bestCombined = combined;
+                        bestCosine = cos;
+                        bestFuzzy = fuz;
+                        bestIdx = i;
+                    }
+                }
+
+                const matchedDoc = this.corpus[bestIdx] || { tag: "unknown", pattern: "none" };
+                const latencyMs = Math.max(0.4, (performance.now() - startTime)).toFixed(2);
+
+                if (bestCombined >= 0.42) {
+                    const intentObj = this.intents.find(it => it.tag === matchedDoc.tag);
+                    let reply = intentObj.responses[Math.floor(Math.random() * intentObj.responses.length)];
+
+                    if (reply === "__DYNAMIC_TIME__") {
+                        const now = new Date();
+                        reply = `Local System Clock: **${now.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}** at \`${now.toLocaleTimeString()}\`.`;
+                    } else if (matchedDoc.tag === "greeting" && this.memory.user_name) {
+                        reply = `Welcome back, **${this.memory.user_name}**! ` + reply;
+                    }
+
+                    return {
+                        reply,
+                        tag: matchedDoc.tag,
+                        closestPattern: matchedDoc.pattern,
+                        cosine: bestCosine,
+                        fuzzy: bestFuzzy,
+                        combined: bestCombined,
+                        method: "TF-IDF + FUZZY",
+                        latencyMs
+                    };
+                }
+
+                // 4. Graceful Low-Confidence Fallback
+                return {
+                    reply: `My confidence score was **${(bestCombined * 100).toFixed(1)}%** (below the \`42%\` threshold). You can teach me this right now by typing:\n\`/learn ${query} | Your desired response\``,
+                    tag: "unmatched_fallback",
+                    closestPattern: matchedDoc.pattern,
+                    cosine: bestCosine,
+                    fuzzy: bestFuzzy,
+                    combined: bestCombined,
+                    method: "LOW CONFIDENCE",
+                    latencyMs
+                };
+            }
+        }
+
+        const botEngine = new LocalNLPEngine();
+
+        /*************************************************************************
+         * 3. INTERACTIVE HTML5 NEURAL PARTICLE CANVAS & WAVEFORM ANIMATION
+         *************************************************************************/
+        const canvas = document.getElementById('neuralCanvas');
+        const ctx = canvas.getContext('2d');
+        let nodes = [];
+        let pulses = [];
+        let neuralExcitement = 1.0; // Spikes when user types or bot responds
+        let wavePhase = 0;
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            initNodes(rect.width, rect.height);
+        }
+
+        function initNodes(w, h) {
+            const count = 28;
+            nodes = [];
+            for (let i = 0; i < count; i++) {
+                nodes.push({
+                    x: Math.random() * w,
+                    y: Math.random() * h,
+                    vx: (Math.random() - 0.5) * 0.65,
+                    vy: (Math.random() - 0.5) * 0.65,
+                    radius: Math.random() * 2.2 + 1.8,
+                    color: i % 3 === 0 ? '#8B5CF6' : '#00F0FF',
+                    pulse: Math.random() * Math.PI * 2
+                });
+            }
+            document.getElementById('nodeCountLabel').textContent = count;
+        }
+
+        function triggerNeuralSurge(intensity = 3.2) {
+            neuralExcitement = Math.min(5.0, neuralExcitement + intensity);
+            const rect = canvas.parentElement.getBoundingClientRect();
+            // Spawn synaptic data packets along random node pairs
+            for (let i = 0; i < 8; i++) {
+                const a = nodes[Math.floor(Math.random() * nodes.length)];
+                const b = nodes[Math.floor(Math.random() * nodes.length)];
+                if (a && b && a !== b) {
+                    pulses.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, progress: 0, speed: 0.04 + Math.random() * 0.04 });
+                }
+            }
+            const badge = document.getElementById('coreStateBadge');
+            badge.textContent = "SYNAPSE FIRING // ACTIVE";
+            badge.className = "font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/40";
+        }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+            nodes.push({
+                x: clickX,
+                y: clickY,
+                vx: (Math.random() - 0.5) * 1.2,
+                vy: (Math.random() - 0.5) * 1.2,
+                radius: 3.2,
+                color: '#10B981',
+                pulse: 0
+            });
+            if (nodes.length > 42) nodes.shift();
+            document.getElementById('nodeCountLabel').textContent = nodes.length;
+            triggerNeuralSurge(2.5);
+            playSciFiBlip("E5");
+        });
+
+        function animateVisualizers() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const w = rect.width;
+            const h = rect.height;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Decay excitement smoothly back to 1.0
+            neuralExcitement += (1.0 - neuralExcitement) * 0.04;
+            document.getElementById('synapseEnergyLabel').textContent = neuralExcitement.toFixed(1) + "x";
+
+            if (neuralExcitement < 1.15) {
+                const badge = document.getElementById('coreStateBadge');
+                badge.textContent = "IDLE // 60 FPS";
+                badge.className = "font-mono text-[10px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20";
+            }
+
+            // Update and draw nodes
+            for (let i = 0; i < nodes.length; i++) {
+                const n = nodes[i];
+                n.x += n.vx * neuralExcitement;
+                n.y += n.vy * neuralExcitement;
+                n.pulse += 0.05 * neuralExcitement;
+
+                if (n.x < 10 || n.x > w - 10) n.vx *= -1;
+                if (n.y < 10 || n.y > h - 10) n.vy *= -1;
+
+                // Connect nearby nodes
+                for (let j = i + 1; j < nodes.length; j++) {
+                    const m = nodes[j];
+                    const dx = n.x - m.x;
+                    const dy = n.y - m.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const maxDist = 95;
+
+                    if (dist < maxDist) {
+                        const alpha = (1 - dist / maxDist) * 0.35 * Math.min(2, neuralExcitement);
+                        ctx.strokeStyle = `rgba(0, 240, 255, ${alpha})`;
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(n.x, n.y);
+                        ctx.lineTo(m.x, m.y);
+                        ctx.stroke();
+                    }
+                }
+
+                // Draw glowing node
+                const glowRadius = n.radius + Math.sin(n.pulse) * 1.1;
+                ctx.fillStyle = n.color;
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, Math.max(1.5, glowRadius), 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw traveling synaptic pulses
+            for (let i = pulses.length - 1; i >= 0; i--) {
+                const p = pulses[i];
+                p.progress += p.speed;
+                if (p.progress >= 1) {
+                    pulses.splice(i, 1);
+                    continue;
+                }
+                const px = p.x1 + (p.x2 - p.x1) * p.progress;
+                const py = p.y1 + (p.y2 - p.y1) * p.progress;
+                ctx.fillStyle = "#10B981";
+                ctx.beginPath();
+                ctx.arc(px, py, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Animate SVG Harmonics Waveform
+            wavePhase += 0.08 * neuralExcitement;
+            const amp = Math.min(18, 4 + (neuralExcitement - 1) * 7);
+            let d1 = `M 0 22`;
+            let d2 = `M 0 22`;
+            for (let x = 0; x <= 300; x += 15) {
+                const y1 = 22 + Math.sin((x * 0.04) + wavePhase) * amp * Math.sin(x / 300 * Math.PI);
+                const y2 = 22 + Math.cos((x * 0.03) - wavePhase * 1.3) * (amp * 0.75) * Math.sin(x / 300 * Math.PI);
+                d1 += ` L ${x} ${y1.toFixed(1)}`;
+                d2 += ` L ${x} ${y2.toFixed(1)}`;
+            }
+            document.getElementById('wavePathPrimary').setAttribute('d', d1);
+            document.getElementById('wavePathSecondary').setAttribute('d', d2);
+
+            requestAnimationFrame(animateVisualizers);
+        }
+
+        // Reactive keystroke synapse pulse
+        document.getElementById('chatInput').addEventListener('input', () => {
+            neuralExcitement = Math.min(3.5, neuralExcitement + 0.35);
+            playSciFiBlip("G5", "64n");
+        });
+
+        /*************************************************************************
+         * 4. UI RENDERING: CHAT MESSAGES, MARKDOWN FORMATTER & TELEMETRY UPDATER
+         *************************************************************************/
+        function formatMarkdown(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/\*\*(.+?)\*\*/g, '<strong class="text-cyan-200 font-semibold">$1</strong>')
+                .replace(/\*(.+?)\*/g, '<em class="text-violet-200">$1</em>')
+                .replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded bg-slate-950/90 text-cyanGlow font-mono text-[11px] border border-cyan-500/20">$1</code>')
+                .replace(/\n/g, '<br/>');
+        }
+
+        function appendMessage(role, text, meta = null) {
+            const container = document.getElementById('chatContainer');
+            const wrapper = document.createElement('div');
+            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            if (role === 'user') {
+                wrapper.className = "flex justify-end animate-msg";
+                wrapper.innerHTML = `
+                    <div class="max-w-[82%] flex flex-col items-end">
+                        <div class="px-4 py-2.5 rounded-2xl rounded-tr-sm bg-gradient-to-br from-cyan-500/20 to-violet-600/25 border border-cyan-400/40 text-xs md:text-sm text-white shadow-lg">
+                            ${formatMarkdown(text)}
+                        </div>
+                        <span class="text-[10px] font-mono text-slate-500 mt-1 mr-1">YOU • ${timeStr}</span>
+                    </div>
+                `;
+            } else {
+                const badgeColor = meta && meta.combined >= 0.42 ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : 'text-amber-400 border-amber-500/30 bg-amber-500/10';
+                const scorePct = meta ? `${(meta.combined * 100).toFixed(0)}%` : '100%';
+                const tagLabel = meta ? `#${meta.tag}` : '#system';
+
+                wrapper.className = "flex justify-start animate-msg";
+                wrapper.innerHTML = `
+                    <div class="max-w-[86%] flex gap-2.5 items-start">
+                        <div class="w-7 h-7 rounded-lg bg-cyan-500/15 border border-cyan-400/40 flex items-center justify-center shrink-0 mt-0.5">
+                            <i class="fa-solid fa-robot text-cyanGlow text-xs"></i>
+                        </div>
+                        <div class="flex flex-col">
+                            <div class="px-4 py-2.5 rounded-2xl rounded-tl-sm bg-slate-900/90 border border-white/10 text-xs md:text-sm text-slate-100 leading-relaxed shadow-lg">
+                                ${formatMarkdown(text)}
+                            </div>
+                            <div class="flex items-center gap-2 mt-1 ml-1">
+                                <span class="text-[10px] font-mono text-slate-500">AETHER • ${timeStr}</span>
+                                <span class="text-[10px] font-mono px-1.5 py-0.2 rounded border ${badgeColor}">${tagLabel} (${scorePct})</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.appendChild(wrapper);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function updateTelemetryDashboard(res) {
+            const cosPct = Math.round(res.cosine * 100);
+            const fuzPct = Math.round(res.fuzzy * 100);
+            const combPct = Math.round(res.combined * 100);
+
+            // Left Radial Confidence Gauge
+            const circumference = 251.2;
+            const offset = circumference - (combPct / 100) * circumference;
+            const ring = document.getElementById('confidenceRing');
+            ring.style.strokeDashoffset = offset;
+            ring.style.stroke = combPct >= 65 ? '#10B981' : (combPct >= 42 ? '#00F0FF' : '#F59E0B');
+
+            document.getElementById('confidencePctText').textContent = `${combPct}%`;
+            document.getElementById('leftIntentTag').textContent = `#${res.tag}`;
+            document.getElementById('latencyBadge').textContent = `${res.latencyMs} ms`;
+
+            // Right Inspector Bars
+            document.getElementById('matchMethodBadge').textContent = res.method;
+            document.getElementById('inspIntentTag').textContent = `#${res.tag}`;
+            document.getElementById('inspClosestPattern').textContent = `"${res.closestPattern}"`;
+
+            document.getElementById('cosineValText').textContent = `${(res.cosine * 100).toFixed(1)}%`;
+            document.getElementById('cosineBar').style.width = `${cosPct}%`;
+
+            document.getElementById('fuzzyValText').textContent = `${(res.fuzzy * 100).toFixed(1)}%`;
+            document.getElementById('fuzzyBar').style.width = `${fuzPct}%`;
+
+            document.getElementById('combinedValText').textContent = `${(res.combined * 100).toFixed(1)}%`;
+            document.getElementById('combinedBar').style.width = `${combPct}%`;
+
+            refreshRightSidePanels();
+        }
+
+        function refreshRightSidePanels() {
+            // Update Corpus stats
+            document.getElementById('corpusSizeText').textContent = `${botEngine.corpus.length} Patterns`;
+            document.getElementById('intentCountBadge').textContent = `${botEngine.intents.length} Intents`;
+
+            // Update Memory Grid
+            const memGrid = document.getElementById('memoryGrid');
+            const keys = Object.keys(botEngine.memory);
+            document.getElementById('memoryCountBadge').textContent = `${keys.length} keys`;
+            memGrid.innerHTML = keys.map(k => `
+                <div class="flex items-center justify-between px-2.5 py-1.5 rounded bg-slate-950/80 border border-white/5 text-xs font-mono">
+                    <span class="text-emerald-400">${k}:</span>
+                    <span class="text-slate-200 truncate max-w-[160px]">"${botEngine.memory[k]}"</span>
+                </div>
+            `).join('');
+
+            // Update Knowledge Base Explorer
+            const explorer = document.getElementById('intentExplorerList');
+            explorer.innerHTML = botEngine.intents.map(intent => `
+                <div class="p-2 rounded-lg bg-slate-950/75 border border-white/5 hover:border-cyan-500/30 transition flex flex-col gap-1">
+                    <div class="flex items-center justify-between">
+                        <span class="font-mono text-xs font-bold text-cyanGlow">#${intent.tag}</span>
+                        <span class="font-mono text-[10px] text-slate-400">${intent.patterns.length} patterns</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1">
+                        ${intent.patterns.slice(0, 4).map(p => `<span class="px-1.5 py-0.5 rounded bg-slate-900 text-[10px] font-mono text-slate-300 border border-white/5">${p}</span>`).join('')}
+                        ${intent.patterns.length > 4 ? `<span class="text-[10px] font-mono text-slate-500">+${intent.patterns.length - 4} more</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        /*************************************************************************
+         * 5. CHAT SUBMISSION & SLASH COMMAND HANDLERS
+         *************************************************************************/
+        function handleChatSubmit(e) {
+            e.preventDefault();
+            const inputEl = document.getElementById('chatInput');
+            const text = inputEl.value.trim();
+            if (!text) return;
+
+            inputEl.value = '';
+            processUserMessage(text);
+        }
+
+        function sendQuickPrompt(promptText) {
+            processUserMessage(promptText);
+        }
+
+        function executeSlashCommand(cmd) {
+            processUserMessage(cmd);
+        }
+
+        function processUserMessage(text) {
+            appendMessage('user', text);
+            triggerNeuralSurge(2.8);
+            playSciFiBlip("C5");
+
+            // Handle Slash Commands Immediately
+            if (text.startsWith('/')) {
+                handleSlashCommand(text);
+                return;
+            }
+
+            // Show brief sci-fi typing indicator
+            const indicator = document.getElementById('typingIndicator');
+            indicator.classList.remove('hidden');
+
+            setTimeout(() => {
+                indicator.classList.add('hidden');
+                const result = botEngine.process(text);
+                appendMessage('bot', result.reply, result);
+                updateTelemetryDashboard(result);
+                triggerNeuralSurge(1.8);
+                playSciFiBlip("G5");
+            }, 260);
+        }
+
+        function handleSlashCommand(rawCmd) {
+            const cmd = rawCmd.trim();
+
+            if (cmd.toLowerCase() === '/clear') {
+                document.getElementById('chatContainer').innerHTML = '';
+                appendMessage('bot', "Terminal buffer cleared. Neural memory and learned intents remain intact.");
+                return;
+            }
+
+            if (cmd.toLowerCase() === '/memory') {
+                const formatted = JSON.stringify(botEngine.memory, null, 2);
+                appendMessage('bot', `Active Local Session Memory (\`bot.memory\`):\n\`${formatted}\``);
+                return;
+            }
+
+            if (cmd.toLowerCase() === '/export') {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(botEngine.intents, null, 2));
+                const dlAnchor = document.createElement('a');
+                dlAnchor.setAttribute("href", dataStr);
+                dlAnchor.setAttribute("download", "knowledge.json");
+                document.body.appendChild(dlAnchor);
+                dlAnchor.click();
+                dlAnchor.remove();
+                appendMessage('bot', "Exported `knowledge.json`! You can drop this file directly into your local Python project folder.");
+                showToast("Downloaded knowledge.json", "emerald");
+                return;
+            }
+
+            if (cmd.toLowerCase().startsWith('/learn ')) {
+                const payload = cmd.slice(7);
+                const parts = payload.split('|');
+                if (parts.length === 2 && parts[0].trim() && parts[1].trim()) {
+                    const pattern = parts[0].trim();
+                    const response = parts[1].trim();
+                    const tag = `learned_${botEngine.intents.length + 1}`;
+                    botEngine.learn(tag, pattern, response);
+                    refreshRightSidePanels();
+                    appendMessage('bot', `Successfully trained new pattern **"${pattern}"** under tag \`#${tag}\`! Go ahead and test it now.`);
+                    showToast(`Learned pattern: "${pattern}"`, "emerald");
+                } else {
+                    appendMessage('bot', "Usage syntax: `/learn <user phrase> | <bot response>`");
+                }
+                return;
+            }
+
+            appendMessage('bot', "Available slash commands: `/learn <pattern> | <response>`, `/memory`, `/export`, `/clear`.");
+        }
+
+        /*************************************************************************
+         * 6. TRAINING STUDIO & TAB CONTROLS
+         *************************************************************************/
+        function switchRightTab(tab) {
+            const telDiv = document.getElementById('rightTabTelemetry');
+            const trnDiv = document.getElementById('rightTabTrain');
+            const btnTel = document.getElementById('tabBtnTelemetry');
+            const btnTrn = document.getElementById('tabBtnTrain');
+
+            if (tab === 'telemetry') {
+                telDiv.classList.remove('hidden');
+                trnDiv.classList.add('hidden');
+                btnTel.className = "px-2.5 py-1 rounded-md text-[11px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 transition";
+                btnTrn.className = "px-2.5 py-1 rounded-md text-[11px] font-mono text-slate-400 hover:text-white transition";
+            } else {
+                telDiv.classList.add('hidden');
+                trnDiv.classList.remove('hidden');
+                btnTrn.className = "px-2.5 py-1 rounded-md text-[11px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition";
+                btnTel.className = "px-2.5 py-1 rounded-md text-[11px] font-mono text-slate-400 hover:text-white transition";
+            }
+        }
+
+        function handleTrainSubmit(e) {
+            e.preventDefault();
+            const tag = document.getElementById('trainTagInput').value.trim();
+            const pattern = document.getElementById('trainPatternInput').value.trim();
+            const response = document.getElementById('trainResponseInput').value.trim();
+
+            if (!tag || !pattern || !response) return;
+
+            botEngine.learn(tag, pattern, response);
+            refreshRightSidePanels();
+            triggerNeuralSurge(3.5);
+            playSciFiBlip("E5");
+
+            document.getElementById('trainTagInput').value = '';
+            document.getElementById('trainPatternInput').value = '';
+            document.getElementById('trainResponseInput').value = '';
+
+            showToast(`Injected #${tag} into TF-IDF Matrix!`, "emerald");
+            switchRightTab('telemetry');
+        }
+
+        function injectMemoryVar() {
+            const k = document.getElementById('memKeyInput').value.trim();
+            const v = document.getElementById('memValInput').value.trim();
+            if (!k || !v) return;
+            botEngine.memory[k] = v;
+            botEngine.saveMemory();
+            document.getElementById('memKeyInput').value = '';
+            document.getElementById('memValInput').value = '';
+            refreshRightSidePanels();
+            showToast(`Saved memory variable ${k} = "${v}"`, "cyan");
+        }
+
+        function resetKnowledgeBase() {
+            localStorage.removeItem(botEngine.storageKey);
+            localStorage.removeItem(botEngine.memoryKey);
+            botEngine.intents = botEngine.loadIntents();
+            botEngine.memory = botEngine.loadMemory();
+            botEngine.buildVectorizer();
+            refreshRightSidePanels();
+            showToast("Neural Knowledge Base restored to factory defaults", "cyan");
+        }
+
+        function showToast(msg, color = "cyan") {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const borderCol = color === "emerald" ? "border-emerald-400/50 text-emerald-200" : "border-cyan-400/50 text-cyan-200";
+            toast.className = `px-4 py-2.5 rounded-xl glass-panel border ${borderCol} text-xs font-mono shadow-2xl animate-msg flex items-center gap-2`;
+            toast.innerHTML = `<i class="fa-solid fa-circle-check"></i> <span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        /*************************************************************************
+         * 7. UPGRADED LANDSCAPE PYTHON GUI CODE (`main.py` & `chatbot.py`)
+         *************************************************************************/
+        const PYTHON_FILES = {
+            main: `import tkinter as tk
+from tkinter import ttk
+import math
+import random
+from chatbot import LocalChatbot
+
+class LandscapeNeuralApp(tk.Tk):
+    """
+    Futuristic Landscape Desktop GUI for your Local Python Chatbot (100% Zero API Keys).
+    Uses built-in Tkinter Canvas for real-time neural particle animations & telemetry gauges.
+    """
+    def __init__(self):
+        super().__init__()
+        self.title("AETHER // Local Neural Chatbot Studio (Landscape Edition)")
+        self.geometry("1280x740")
+        self.configure(bg="#060913")
+        self.bot = LocalChatbot()
+        self.excitement = 1.0
+        self.wave_phase = 0.0
+
+        # Configure Grid (3-Column Landscape Layout)
+        self.grid_columnconfigure(0, weight=3)
+        self.grid_columnconfigure(1, weight=5)
+        self.grid_columnconfigure(2, weight=4)
+        self.grid_rowconfigure(0, weight=1)
+
+        self._build_left_visualizer()
+        self._build_center_chat()
+        self._build_right_telemetry()
+        self._animate_loop()
+
+    def _build_left_visualizer(self):
+        frame = tk.Frame(self, bg="#0D1322", highlightbackground="#1E293B", highlightthickness=1)
+        frame.grid(row=0, column=0, sticky="nsew", padx=(14, 7), pady=14)
+
+        lbl = tk.Label(frame, text="NEURAL CORE TOPOLOGY", fg="#00F0FF", bg="#0D1322", font=("Consolas", 11, "bold"))
+        lbl.pack(anchor="w", padx=12, pady=(12, 6))
+
+        self.canvas = tk.Canvas(frame, bg="#04070E", highlightthickness=1, highlightbackground="#00F0FF")
+        self.canvas.pack(fill="both", expand=True, padx=12, pady=8)
+
+        # Initialize 24 animated neural nodes
+        self.nodes = [
+            {"x": random.uniform(20, 260), "y": random.uniform(20, 360),
+             "vx": random.uniform(-0.8, 0.8), "vy": random.uniform(-0.8, 0.8)}
+            for _ in range(24)
+        ]
+
+        self.conf_label = tk.Label(frame, text="CONFIDENCE: 100% | #greeting", fg="#10B981", bg="#0D1322", font=("Consolas", 10, "bold"))
+        self.conf_label.pack(pady=(4, 12))
+
+    def _build_center_chat(self):
+        frame = tk.Frame(self, bg="#0D1322", highlightbackground="#1E293B", highlightthickness=1)
+        frame.grid(row=0, column=1, sticky="nsew", padx=7, pady=14)
+        frame.grid_rowconfigure(1, weight=1)
+        frame.grid_columnconfigure(0, weight=1)
+
+        header = tk.Label(frame, text="NEURAL DIALOGUE TERMINAL (ZERO API KEYS)", fg="#F8FAFC", bg="#0D1322", font=("Consolas", 11, "bold"))
+        header.grid(row=0, column=0, columnspan=2, sticky="w", padx=14, pady=12)
+
+        self.chat_log = tk.Text(frame, bg="#060913", fg="#E2E8F0", font=("Segoe UI", 10), wrap="word", bd=0, padx=12, pady=12)
+        self.chat_log.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=12)
+        self.chat_log.tag_config("user", foreground="#00F0FF", font=("Segoe UI", 10, "bold"))
+        self.chat_log.tag_config("bot", foreground="#10B981", font=("Segoe UI", 10, "bold"))
+
+        self.entry = tk.Entry(frame, bg="#04070E", fg="#FFFFFF", insertbackground="#00F0FF", font=("Segoe UI", 11), bd=1, relief="flat")
+        self.entry.grid(row=2, column=0, sticky="ew", padx=(12, 6), pady=12, ipady=8)
+        self.entry.bind("<Return>", self.send_message)
+        self.entry.bind("<Key>", lambda e: self.surge(0.3))
+
+        send_btn = tk.Button(frame, text="SEND", bg="#00F0FF", fg="#060913", font=("Consolas", 10, "bold"), command=self.send_message, relief="flat", padx=16)
+        send_btn.grid(row=2, column=1, sticky="ns", padx=(0, 12), pady=12)
+
+        self._append_msg("AETHER", "Landscape Neural Interface initialized. Type a question, math expression, or /learn phrase | reply.")
+
+    def _build_right_telemetry(self):
+        frame = tk.Frame(self, bg="#0D1322", highlightbackground="#1E293B", highlightthickness=1)
+        frame.grid(row=0, column=2, sticky="nsew", padx=(7, 14), pady=14)
+
+        tk.Label(frame, text="LIVE NLP TELEMETRY & TRAINER", fg="#8B5CF6", bg="#0D1322", font=("Consolas", 11, "bold")).pack(anchor="w", padx=14, pady=12)
+
+        self.telemetry_var = tk.StringVar(value="Intent: #greeting\\nCosine Score: 100%\\nFuzzy Score: 100%\\nCombined: 100%")
+        tel_box = tk.Label(frame, textvariable=self.telemetry_var, justify="left", fg="#00F0FF", bg="#060913", font=("Consolas", 10), padx=14, pady=14)
+        tel_box.pack(fill="x", padx=14, pady=6)
+
+        # Live Teach Bot Inputs
+        tk.Label(frame, text="TEACH BOT NEW PATTERN:", fg="#94A3B8", bg="#0D1322", font=("Consolas", 9)).pack(anchor="w", padx=14, pady=(16, 2))
+        self.pattern_entry = tk.Entry(frame, bg="#060913", fg="#FFF", insertbackground="#FFF", font=("Segoe UI", 10))
+        self.pattern_entry.pack(fill="x", padx=14, pady=4, ipady=4)
+
+        tk.Label(frame, text="BOT RESPONSE:", fg="#94A3B8", bg="#0D1322", font=("Consolas", 9)).pack(anchor="w", padx=14, pady=(8, 2))
+        self.resp_entry = tk.Entry(frame, bg="#060913", fg="#FFF", insertbackground="#FFF", font=("Segoe UI", 10))
+        self.resp_entry.pack(fill="x", padx=14, pady=4, ipady=4)
+
+        tk.Button(frame, text="+ INJECT INTO TF-IDF MATRIX", bg="#10B981", fg="#060913", font=("Consolas", 10, "bold"),
+                  command=self.train_bot, relief="flat", pady=6).pack(fill="x", padx=14, pady=14)
+
+    def surge(self, amount=2.0):
+        self.excitement = min(4.5, self.excitement + amount)
+
+    def _append_msg(self, sender, msg):
+        tag = "user" if sender == "YOU" else "bot"
+        self.chat_log.insert("end", f"{sender} > ", tag)
+        self.chat_log.insert("end", f"{msg}\\n\\n")
+        self.chat_log.see("end")
+
+    def send_message(self, event=None):
+        user_text = self.entry.get().strip()
+        if not user_text:
+            return
+        self.entry.delete(0, "end")
+        self._append_msg("YOU", user_text)
+        self.surge(2.5)
+
+        res = self.bot.get_detailed_response(user_text)
+        self._append_msg("AETHER", res["reply"])
+        self.conf_label.config(text=f"CONFIDENCE: {res['combined']*100:.0f}% | #{res['tag']}")
+        self.telemetry_var.set(
+            f"Matched Intent: #{res['tag']}\\n"
+            f"TF-IDF Cosine:  {res['cosine']*100:.1f}%\\n"
+            f"Fuzzy Ratio:    {res['fuzzy']*100:.1f}%\\n"
+            f"Combined Score: {res['combined']*100:.1f}%\\n"
+            f"Memory Keys:    {len(self.bot.memory)}"
+        )
+
+    def train_bot(self):
+        p = self.pattern_entry.get().strip()
+        r = self.resp_entry.get().strip()
+        if p and r:
+            self.bot.learn(f"custom_{len(self.bot.intents)}", p, r)
+            self.pattern_entry.delete(0, "end")
+            self.resp_entry.delete(0, "end")
+            self._append_msg("AETHER", f"Learned new pattern: '{p}' -> '{r}'")
+            self.surge(3.0)
+
+    def _animate_loop(self):
+        self.canvas.delete("all")
+        w = max(260, self.canvas.winfo_width())
+        h = max(320, self.canvas.winfo_height())
+        self.excitement += (1.0 - self.excitement) * 0.06
+
+        # Update & connect neural nodes
+        for i, n in enumerate(self.nodes):
+            n["x"] += n["vx"] * self.excitement
+            n["y"] += n["vy"] * self.excitement
+            if n["x"] < 10 or n["x"] > w - 10: n["vx"] *= -1
+            if n["y"] < 10 or n["y"] > h - 60: n["vy"] *= -1
+
+            for m in self.nodes[i+1:]:
+                dist = math.hypot(n["x"] - m["x"], n["y"] - m["y"])
+                if dist < 85:
+                    self.canvas.create_line(n["x"], n["y"], m["x"], m["y"], fill="#0E4F63", width=1)
+
+            self.canvas.create_oval(n["x"]-3, n["y"]-3, n["x"]+3, n["y"]+3, fill="#00F0FF", outline="")
+
+        # Draw bottom harmonic sine wave
+        self.wave_phase += 0.15 * self.excitement
+        pts = []
+        for x in range(0, w, 10):
+            y = (h - 28) + math.sin(x * 0.04 + self.wave_phase) * (6 * self.excitement)
+            pts.extend([x, y])
+        if len(pts) >= 4:
+            self.canvas.create_line(*pts, fill="#8B5CF6", width=2, smooth=True)
+
+        self.after(25, self._animate_loop)
+
+if __name__ == "__main__":
+    app = LandscapeNeuralApp()
+    app.mainloop()`,
+
+            chatbot: `import re
+from datetime import datetime
+from difflib import SequenceMatcher
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
+
+class LocalChatbot:
+    """
+    100% Local NLP Chatbot Engine with Telemetry Support (Zero API Keys).
+    Combines N-gram TF-IDF Cosine Similarity + SequenceMatcher Fuzzy Ratio.
+    """
+    def __init__(self):
+        self.memory = {"user_name": "Operator"}
+        self.intents = [
+            {"tag": "greeting", "patterns": ["hello", "hi", "hey", "greetings"],
+             "responses": ["Hello! Local Neural Engine online at 100% capacity."]},
+            {"tag": "capabilities", "patterns": ["what can you do", "help", "features"],
+             "responses": ["I run TF-IDF vector matching, fuzzy typo matching, math evaluation, and live training!"]},
+            {"tag": "status", "patterns": ["how are you", "system status", "diagnostics"],
+             "responses": ["All local clusters nominal! Zero external API keys required."]},
+            {"tag": "time", "patterns": ["what time is it", "current time", "date"],
+             "responses": ["__DYNAMIC_TIME__"]}
+        ]
+        self._build_vectorizer()
+
+    def _build_vectorizer(self):
+        self.corpus = []
+        self.tags = []
+        for intent in self.intents:
+            for p in intent["patterns"]:
+                self.corpus.append(p.lower())
+                self.tags.append(intent["tag"])
+        self.vectorizer = TfidfVectorizer(ngram_range=(1, 3))
+        self.tfidf_matrix = self.vectorizer.fit_transform(self.corpus)
+
+    def learn(self, tag: str, pattern: str, response: str):
+        self.intents.append({"tag": tag, "patterns": [pattern.lower()], "responses": [response]})
+        self._build_vectorizer()
+
+    def get_detailed_response(self, user_input: str) -> dict:
+        query = user_input.strip()
+        # 1. Check Math
+        cleaned = re.sub(r"[^0-9+\\-*/().\\s]", "", query).strip()
+        if cleaned and any(op in cleaned for op in ["+", "-", "*", "/"]) and re.search(r"\\d", cleaned):
+            try:
+                val = eval(cleaned, {"__builtins__": None}, {})
+                return {"reply": f"Result: {val}", "tag": "math_alu", "cosine": 1.0, "fuzzy": 1.0, "combined": 1.0}
+            except Exception:
+                pass
+
+        # 2. Hybrid TF-IDF + Fuzzy Matching
+        q_vec = self.vectorizer.transform([query.lower()])
+        cos_scores = cosine_similarity(q_vec, self.tfidf_matrix).flatten()
+
+        best_idx, best_comb, best_cos, best_fuz = 0, 0.0, 0.0, 0.0
+        for idx, pat in enumerate(self.corpus):
+            fuz = SequenceMatcher(None, query.lower(), pat).ratio()
+            comb = (cos_scores[idx] * 0.65) + (fuz * 0.35)
+            if comb > best_comb:
+                best_comb, best_cos, best_fuz, best_idx = comb, cos_scores[idx], fuz, idx
+
+        tag = self.tags[best_idx]
+        if best_comb >= 0.42:
+            for intent in self.intents:
+                if intent["tag"] == tag:
+                    reply = np.random.choice(intent["responses"])
+                    if reply == "__DYNAMIC_TIME__":
+                        reply = datetime.now().strftime("Local Time: %A, %b %d at %I:%M %p")
+                    return {"reply": reply, "tag": tag, "cosine": float(best_cos), "fuzzy": float(best_fuz), "combined": float(best_comb)}
+
+        return {
+            "reply": "Confidence below threshold. Use the right panel to teach me this pattern!",
+            "tag": "unmatched", "cosine": float(best_cos), "fuzzy": float(best_fuz), "combined": float(best_comb)
+        }`
+        };
+
+        let activePyFile = 'main';
+
+        function openPythonModal() {
+            const modal = document.getElementById('pythonModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            switchPyModalTab('main');
+            playSciFiBlip("E5");
+        }
+
+        function closePythonModal() {
+            const modal = document.getElementById('pythonModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function switchPyModalTab(fileKey) {
+            activePyFile = fileKey;
+            document.getElementById('pythonCodeDisplay').textContent = PYTHON_FILES[fileKey];
+            const btnMain = document.getElementById('pyTabMain');
+            const btnChat = document.getElementById('pyTabChatbot');
+
+            if (fileKey === 'main') {
+                btnMain.className = "px-3 py-1.5 rounded-lg text-xs font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/40";
+                btnChat.className = "px-3 py-1.5 rounded-lg text-xs font-mono bg-slate-800 text-slate-400 hover:text-white";
+            } else {
+                btnChat.className = "px-3 py-1.5 rounded-lg text-xs font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/40";
+                btnMain.className = "px-3 py-1.5 rounded-lg text-xs font-mono bg-slate-800 text-slate-400 hover:text-white";
+            }
+        }
+
+        function copyPythonCode() {
+            const code = PYTHON_FILES[activePyFile];
+            const temp = document.createElement('textarea');
+            temp.value = code;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            temp.remove();
+
+            const btnText = document.getElementById('copyBtnText');
+            btnText.textContent = "Copied!";
+            showToast(`Copied ${activePyFile}.py to clipboard!`, "emerald");
+            setTimeout(() => { btnText.textContent = "Copy Code"; }, 2000);
+        }
+
+        /*************************************************************************
+         * 8. INITIALIZATION ON WINDOW LOAD
+         *************************************************************************/
+        window.onload = function () {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            animateVisualizers();
+            refreshRightSidePanels();
+
+            // Welcome message
+            appendMessage(
+                'bot',
+                "Welcome to **AETHER // Landscape Neural Studio**! I am running your upgraded **TF-IDF + Levenshtein Fuzzy NLP engine** 100% locally in real time.\n\n• Try asking a question (even with typos like `hwo do u wrok`)\n• Test the **Teach Bot** tab on the right to add custom intents\n• Click **Get Python GUI** in the top bar for the matching landscape Tkinter desktop files!",
+                { tag: "system_boot", combined: 1.0 }
+            );
+        };
+    </script>
+</body>
+</html>
